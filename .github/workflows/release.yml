@@ -1,6 +1,7 @@
 # Based partially on Alyxia's work, thanks so much!
 
 name: Release
+
 on:
   push:
     tags:
@@ -11,7 +12,7 @@ env:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-20.04 # hopefully older glibc for better compatibility on systems like debian bullseye
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Install Go
@@ -35,11 +36,13 @@ jobs:
         run: go get -v
 
       - name: Build Cli
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -tags "static cli" -ldflags "-s -w -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" -o VencordInstallerCli-linux
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -tags "static cli" \
+            -ldflags "-s -w -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" \
+            -o VencordInstallerCli-linux
 
       - name: Update executable
-        run: |
-          chmod +x VencordInstallerCli-linux
+        run: chmod +x VencordInstallerCli-linux
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -50,7 +53,7 @@ jobs:
 
 
   build-mac:
-    runs-on: macos-latest
+    runs-on: macos-14
 
     steps:
       - name: Install Go
@@ -71,9 +74,9 @@ jobs:
           path: |
             ~/Library/Caches/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-arm64-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-go-arm64-
 
       - name: Install dependencies
         run: brew install pkg-config sdl2
@@ -81,27 +84,29 @@ jobs:
       - name: Install Go dependencies
         run: go get -v
 
-      - name: Build
-        run: CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -v -tags static -ldflags "-s -w -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" -o VencordInstaller
+      - name: Build Apple Silicon
+        run: |
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -v -tags static \
+            -ldflags "-s -w -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" \
+            -o VencordInstaller
 
       - name: Update executable
-        run: |
-          chmod +x VencordInstaller
+        run: chmod +x VencordInstaller
 
-      - name: Generate MacOS bundle
+      - name: Generate MacOS ARM64 bundle
         run: |
           mkdir -p VencordInstaller.app/Contents/MacOS
           mkdir -p VencordInstaller.app/Contents/Resources
           cp macos/Info.plist VencordInstaller.app/Contents/Info.plist
           mv VencordInstaller VencordInstaller.app/Contents/MacOS/VencordInstaller
           cp macos/icon.icns VencordInstaller.app/Contents/Resources/icon.icns
-          zip -r VencordInstaller.MacOS.zip VencordInstaller.app
+          zip -r VencordInstaller.MacOS-arm64.zip VencordInstaller.app
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: VencordInstaller-macos
-          path: VencordInstaller.MacOS.zip
+          name: VencordInstaller-macos-arm64
+          path: VencordInstaller.MacOS-arm64.zip
 
 
   build-windows:
@@ -149,14 +154,18 @@ jobs:
           export GOROOT=/mingw64/lib/go
           export GOPATH=/mingw64
           go-winres make --product-version "git-tag"
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags static -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" -o VencordInstaller.exe
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags static \
+            -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" \
+            -o VencordInstaller.exe
 
       - name: Build i386 Cli
         shell: msys2 {0}
         run: |
           export GOROOT=/mingw64/lib/go
           export GOPATH=/mingw64
-          CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -v -tags "static cli" -ldflags "-s -w -extldflags=-static -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" -o VencordInstallerCli.exe
+          CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -v -tags "static cli" \
+            -ldflags "-s -w -extldflags=-static -X 'vencordinstaller/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencordinstaller/buildinfo.InstallerTag=${{ github.ref_name }}'" \
+            -o VencordInstallerCli.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -182,7 +191,7 @@ jobs:
 
       - uses: actions/download-artifact@v3
         with:
-          name: VencordInstaller-macos
+          name: VencordInstaller-macos-arm64
           path: macos
 
       - uses: actions/download-artifact@v3
@@ -191,7 +200,7 @@ jobs:
           path: windows
 
       - name: Create the release
-        uses: softprops/action-gh-release@1e07f4398721186383de40550babbdf2b84acfc5 # v1
+        uses: softprops/action-gh-release@1e07f4398721186383de40550babbdf2b84acfc5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -200,5 +209,5 @@ jobs:
           draft: false
           files: |
             linux/VencordInstallerCli-linux
-            macos/VencordInstaller.MacOS.zip
+            macos/VencordInstaller.MacOS-arm64.zip
             windows/VencordInstalle*.exe
