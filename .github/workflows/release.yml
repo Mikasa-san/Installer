@@ -46,7 +46,7 @@ jobs:
         run: chmod +x VencordInstallerCli-linux
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: VencordInstaller-linux
           path: |
@@ -68,7 +68,7 @@ jobs:
           echo "go_mod=$(go env GOMODCACHE)" >> $GITHUB_ENV
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - uses: actions/cache@v3
         with:
@@ -104,7 +104,7 @@ jobs:
           zip -r VencordInstaller.MacOS-arm64.zip VencordInstaller.app
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: VencordInstaller-macos-arm64
           path: VencordInstaller.MacOS-arm64.zip
@@ -169,7 +169,7 @@ jobs:
             -o VencordInstallerCli.exe
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: VencordInstaller-windows
           path: |
